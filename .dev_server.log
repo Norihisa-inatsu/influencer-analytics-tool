@@ -1,0 +1,219 @@
+
+> my-v0-project@0.1.0 dev /Users/p10233/Downloads/influencer-analytics-tool
+> next dev -p 3000
+
+   ▲ Next.js 15.2.4
+   - Local:        http://localhost:3000
+   - Network:      http://172.17.209.19:3000
+
+ ✓ Starting...
+ ✓ Ready in 2.9s
+ ○ Compiling / ...
+ ✓ Compiled / in 2.7s (2181 modules)
+ GET / 200 in 3129ms
+ ✓ Compiled in 521ms (1076 modules)
+ HEAD / 200 in 41ms
+ ✓ Compiled in 653ms (2181 modules)
+ GET / 200 in 52ms
+ ✓ Compiled in 352ms (2181 modules)
+ GET / 200 in 19ms
+ ✓ Compiled in 480ms (2181 modules)
+ GET / 200 in 46ms
+ ✓ Compiled in 321ms (2181 modules)
+ GET / 200 in 34ms
+ ✓ Compiled /_not-found in 319ms (2171 modules)
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 380ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 27ms
+ ✓ Compiled in 471ms (2181 modules)
+ GET / 200 in 52ms
+ ✓ Compiled in 316ms (2181 modules)
+ GET / 200 in 30ms
+ ✓ Compiled in 543ms (2181 modules)
+ GET / 200 in 55ms
+ ✓ Compiled in 276ms (2181 modules)
+ GET / 200 in 33ms
+ ✓ Compiled in 257ms (2181 modules)
+ GET / 200 in 23ms
+ ✓ Compiled in 276ms (2181 modules)
+ GET / 200 in 21ms
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET / 200 in 158ms
+ ✓ Compiled in 291ms (2181 modules)
+ GET / 200 in 133ms
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ✓ Compiled in 523ms (2181 modules)
+ GET / 200 in 183ms
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ✓ Compiled in 368ms (2181 modules)
+ GET / 200 in 110ms
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ✓ Compiled in 311ms (2181 modules)
+ GET / 200 in 39ms
+ ✓ Compiled in 288ms (2181 modules)
+ GET / 200 in 29ms
+ ✓ Compiled in 477ms (2181 modules)
+ GET / 200 in 54ms
+ ✓ Compiled in 332ms (2181 modules)
+ GET / 200 in 35ms
+ ✓ Compiled in 270ms (2181 modules)
+ GET / 200 in 20ms
+ ✓ Compiled in 323ms (2181 modules)
+ GET / 200 in 23ms
+ ✓ Compiled in 567ms (2181 modules)
+ GET / 200 in 47ms
+ ✓ Compiled in 321ms (2181 modules)
+ GET / 200 in 21ms
+ ✓ Compiled in 566ms (2181 modules)
+ GET / 200 in 21ms
+ ✓ Compiled in 388ms (2181 modules)
+ GET / 200 in 16ms
+ ✓ Compiled in 415ms (2181 modules)
+ GET / 200 in 21ms
+ ✓ Compiled in 363ms (2181 modules)
+ GET / 200 in 28ms
+ ✓ Compiled in 334ms (2181 modules)
+ GET / 200 in 18ms
+ ✓ Compiled in 588ms (2181 modules)
+ GET / 200 in 42ms
+ ✓ Compiled in 376ms (2181 modules)
+ GET / 200 in 23ms
+ ✓ Compiled in 318ms (2181 modules)
+ GET / 200 in 25ms
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ✓ Compiled in 698ms (2181 modules)
+ ⨯ ReferenceError: selectedPurpose is not defined
+    at UltraModernDashboard (app/page.tsx:353:21)
+  351 |
+  352 |     fetchData()
+> 353 |   }, [selectedMedia, selectedPurpose])
+      |                     ^
+  354 |
+  355 |   // プルダウンオプション生成
+  356 |   const mediaOptions = Array.from(new Set(sheetData.map(item => item.media))) {
+  digest: '1859384145'
+}
+ GET / 500 in 462ms
+ ✓ Compiled in 500ms (2181 modules)
+ ⨯ ReferenceError: selectedPurpose is not defined
+    at renderDashboard (app/page.tsx:412:29)
+    at renderContent (app/page.tsx:1045:15)
+    at UltraModernDashboard (app/page.tsx:1116:30)
+  410 |             <div>
+  411 |               <label className="text-sm text-gray-400 mb-2 block">目的</label>
+> 412 |               <Select value={selectedPurpose} onValueChange={setSelectedPurpose}>
+      |                             ^
+  413 |                 <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+  414 |                   <SelectValue placeholder="目的を選択してください" />
+  415 |                 </SelectTrigger> {
+  digest: '1859384145'
+}
+ GET / 500 in 137ms
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ✓ Compiled in 311ms (2181 modules)
+ ⨯ ReferenceError: selectedPurpose is not defined
+    at renderDashboard (app/page.tsx:412:29)
+    at renderContent (app/page.tsx:1045:15)
+    at UltraModernDashboard (app/page.tsx:1116:30)
+  410 |             <div>
+  411 |               <label className="text-sm text-gray-400 mb-2 block">目的</label>
+> 412 |               <Select value={selectedPurpose} onValueChange={setSelectedPurpose}>
+      |                             ^
+  413 |                 <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+  414 |                   <SelectValue placeholder="目的を選択してください" />
+  415 |                 </SelectTrigger> {
+  digest: '1859384145'
+}
+ GET / 500 in 240ms
+ ✓ Compiled in 409ms (2181 modules)
+ ⨯ ReferenceError: selectedPurpose is not defined
+    at renderDashboard (app/page.tsx:431:56)
+    at renderContent (app/page.tsx:1045:15)
+    at UltraModernDashboard (app/page.tsx:1116:30)
+  429 |             <p className="text-xs text-gray-400">デバッグ情報:</p>
+  430 |             <p className="text-xs text-gray-300">選択媒体: {selectedMedia}</p>
+> 431 |             <p className="text-xs text-gray-300">選択目的: {selectedPurpose}</p>
+      |                                                        ^
+  432 |             <p className="text-xs text-gray-300">データ件数: {realData.length}件</p>
+  433 |             <p className="text-xs text-gray-300">データ: {JSON.stringify(realData.slice(0, 2))}</p>
+  434 |           </div> {
+  digest: '1859384145'
+}
+ GET / 500 in 87ms
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ✓ Compiled in 281ms (2181 modules)
+ GET / 200 in 233ms
+ ✓ Compiled in 330ms (2181 modules)
+ GET / 200 in 20ms
+ ✓ Compiled in 446ms (2181 modules)
+ GET / 200 in 19ms
+ ✓ Compiled in 377ms (2181 modules)
+ GET / 200 in 25ms
+ ✓ Compiled in 486ms (2181 modules)
+ GET / 200 in 21ms
+ ✓ Compiled in 623ms (2181 modules)
+ GET / 200 in 20ms
+ ✓ Compiled in 390ms (2181 modules)
+ GET / 200 in 25ms
+ ✓ Compiled in 345ms (2181 modules)
+ GET / 200 in 16ms
+ ✓ Compiled in 377ms (2181 modules)
+ GET / 200 in 27ms
+ ✓ Compiled in 252ms (2181 modules)
+ GET / 200 in 31ms
+ ✓ Compiled in 394ms (2181 modules)
+ GET / 200 in 24ms
+ ✓ Compiled in 446ms (2181 modules)
+ GET / 200 in 24ms
+ ✓ Compiled in 290ms (2181 modules)
+ GET / 200 in 20ms
+ ✓ Compiled in 443ms (2181 modules)
+ GET / 200 in 17ms
+ ✓ Compiled in 230ms (1076 modules)
+ ✓ Compiled in 174ms (1076 modules)
+ ✓ Compiled in 164ms (2167 modules)
+ ✓ Compiled in 112ms (1076 modules)
+ ✓ Compiled in 262ms (1076 modules)
+ ✓ Compiled in 484ms (2181 modules)
+ ✓ Compiled in 347ms (2181 modules)
+ ✓ Compiled in 551ms (2181 modules)
+ ✓ Compiled in 145ms (1076 modules)
+ ✓ Compiled in 119ms (1076 modules)
+ ✓ Compiled in 473ms (2181 modules)
+ ✓ Compiled /_not-found in 254ms (2171 modules)
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 303ms
+ ✓ Compiled in 198ms (1076 modules)
+ ✓ Compiled in 229ms (1076 modules)
+ GET / 200 in 129ms
+ ✓ Compiled /api/data in 441ms (2186 modules)
+API Route: GET request received
+API Route: media = TikTok
+API Route: objective = リーチ
+API Route: GAS URL = https://script.google.com/macros/s/AKfycbzMYH3_LJT3srOFdq395aKtDQTC6Niv2YbNU_qwtB0V4Xmgn4Z6S5teAkPlh6SCfDNG/exec?media=TikTok&objective=%E3%83%AA%E3%83%BC%E3%83%81
+API Route: GAS response status = 200
+API Route: GAS returned non-JSON response
+ GET /api/data?media=TikTok&objective=%E3%83%AA%E3%83%BC%E3%83%81 502 in 2309ms
+ GET / 200 in 139ms
+API Route: GET request received
+API Route: media = TikTok
+API Route: objective = リーチ
+API Route: GAS URL = https://script.google.com/macros/s/AKfycbzMYH3_LJT3srOFdq395aKtDQTC6Niv2YbNU_qwtB0V4Xmgn4Z6S5teAkPlh6SCfDNG/exec?media=TikTok&objective=%E3%83%AA%E3%83%BC%E3%83%81
+API Route: GAS response status = 200
+API Route: GAS returned non-JSON response
+ GET /api/data?media=TikTok&objective=%E3%83%AA%E3%83%BC%E3%83%81 502 in 1813ms
+ ✓ Compiled in 347ms (2182 modules)
+ GET / 200 in 54ms
+ ✓ Compiled /api/data in 86ms (1123 modules)
+API Route: GET request received
+API Route: media = TikTok
+API Route: objective = リーチ
+API Route: GAS URL = https://script.google.com/macros/s/AKfycbzMYH3_LJT3srOFdq395aKtDQTC6Niv2YbNU_qwtB0V4Xmgn4Z6S5teAkPlh6SCfDNG/exec?media=TikTok&objective=%E3%83%AA%E3%83%BC%E3%83%81
+ GET / 200 in 57ms
+API Route: GAS response status = 200
+API Route: GAS returned non-JSON response (snippet): <!doctype html><html lang="en-US" dir="ltr"><head><base href="https://accounts.google.com/v3/signin/"><link rel="preconnect" href="//www.gstatic.com"><meta name="referrer" content="origin"><style data-href="https://www.gstatic.com/_/mss/boq-identity/_/ss/k=boq-identity.AccountsSignInUi.77qKaHMKU-A.L.X.O/am=gRMCM2WMvQ0AlP__JwRAEQAgAEABAAAAAAAAAAAwAAAQEgIAAQ/d=1/ed=1/rs=AOaEmlEhU8ohHaftnOQqDIJYN4edT5CHOQ/m=identifierview,_b,_tp" nonce="GAOSC8KG190PragzN-NpRA">@-webkit-keyframes quantumWizBoxInkSpr
+ GET /api/data?media=TikTok&objective=%E3%83%AA%E3%83%BC%E3%83%81 502 in 1445ms
+ ✓ Compiled in 582ms (2200 modules)
+ GET / 200 in 24ms
+ ✓ Compiled in 378ms (2182 modules)
+ GET / 200 in 53ms
