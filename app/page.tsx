@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import {
   LayoutDashboard,
   Search,
@@ -31,6 +31,10 @@ import { Slider } from "@/components/ui/slider"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Check, ChevronsUpDown } from "lucide-react"
+import { cn } from "@/lib/utils"
 import {
   Scatter,
   ScatterChart,
@@ -219,6 +223,9 @@ export default function UltraModernDashboard() {
   const [hoveredBubble, setHoveredBubble] = useState<any>(null)
   const [crosshairPosition, setCrosshairPosition] = useState<{ x: number; y: number } | null>(null)
   const [realData, setRealData] = useState<any[]>([]);
+  const [bubbleSearchKeyword, setBubbleSearchKeyword] = useState('美容');
+
+  // フィルター状態
   const [selectedMedia, setSelectedMedia] = useState('TikTok');
   const [selectedObjective, setSelectedObjective] = useState('リーチ');
 
@@ -232,20 +239,72 @@ export default function UltraModernDashboard() {
   // リスト管理状態
   const [activeList, setActiveList] = useState(1)
 
+  // 初期モックデータの設定
+  useEffect(() => {
+    const initialMockData = [
+      {
+        name: '@beauty_guru',
+        cpm: 450,
+        acquisitionCost: 1200,
+        campaignCount: 15,
+        category: '美容',
+        color: '#8B5CF6',
+        engagement: 8.5,
+        followers: '15.2万',
+      },
+      {
+        name: '@tech_reviewer',
+        cpm: 380,
+        acquisitionCost: 890,
+        campaignCount: 22,
+        category: 'テック',
+        color: '#14B8A6',
+        engagement: 6.8,
+        followers: '28.1万',
+      },
+      {
+        name: '@fashion_icon',
+        cpm: 520,
+        acquisitionCost: 1450,
+        campaignCount: 18,
+        category: 'ファッション',
+        color: '#F59E0B',
+        engagement: 9.2,
+        followers: '12.3万',
+      },
+      {
+        name: '@gaming_pro',
+        cpm: 350,
+        acquisitionCost: 650,
+        campaignCount: 30,
+        category: 'ゲーム',
+        color: '#EF4444',
+        engagement: 9.5,
+        followers: '30.5万',
+      }
+    ];
+    setRealData(initialMockData);
+  }, []);
+
+  // パフォーマンスデータ取得用のuseEffect
   useEffect(() => {
     console.log('useEffect実行 - 選択された媒体:', selectedMedia);
     console.log('useEffect実行 - 選択された目的:', selectedObjective);
     
-    // ★ 変更点: 呼び出し先を、外部のGAS URLから、自分のプロジェクト内のAPIルートに変更
-    const API_ENDPOINT = '/api/data';
+    // 新しいAPIエンドポイント: /api/performance
+    const API_ENDPOINT = '/api/performance';
 
     const url = new URL(API_ENDPOINT, window.location.origin);
     url.searchParams.append('media', selectedMedia);
-    url.searchParams.append('objective', selectedObjective);
+    
+    // objectiveが空でない場合のみパラメータに追加
+    if (selectedObjective && selectedObjective.trim() !== '') {
+      url.searchParams.append('objective', selectedObjective);
+    }
 
     console.log('API呼び出しURL:', url.toString());
 
-    fetch(url.toString()) // 自分のAPIを呼び出す
+    fetch(url.toString())
       .then(response => {
         if (!response.ok) {
           throw new Error(`Network response was not ok, status: ${response.status}`);
@@ -253,12 +312,80 @@ export default function UltraModernDashboard() {
         return response.json();
       })
       .then(data => {
-        // ... (データ形式を変換する部分は同じ) ...
+        console.log('APIから取得した生データ:', data);
+        
+        // データ形式を変換（実際のカラム名に合わせて修正）
+        const formattedData = data.map((item: any) => {
+          console.log('変換前のアイテム:', item);
+          
+          const formatted = {
+            name: item['アカウント名'] || item['ハンドル名'],
+            cpm: Number(item['CPM']) || 0, // 数値型に変換
+            acquisitionCost: Number(item['単価数値']) || 0, // 数値型に変換（スペースなし）
+            campaignCount: Number(item['集計元n数']) || 0, // 数値型に変換
+            category: item['モデルカテゴリ'],
+            color: `#${Math.floor(Math.random()*16777215).toString(16)}`,
+            engagement: 0,
+            followers: 'N/A',
+          };
+          
+          console.log('変換後のアイテム:', formatted);
+          return formatted;
+        });
+        
+        console.log('最終的なformattedData:', formattedData);
+        
+        // データの検証
+        const validData = formattedData.filter((item: any) => 
+          typeof item.cpm === 'number' && 
+          typeof item.acquisitionCost === 'number' && 
+          !isNaN(item.cpm) && 
+          !isNaN(item.acquisitionCost)
+        );
+        
+        console.log('有効なデータ件数:', validData.length);
+        console.log('有効なデータのサンプル:', validData.slice(0, 3));
+        
+        setRealData(validData);
+      })
+      .catch(error => {
+        console.error('データの取得に失敗しました:', error);
+        setRealData([]); 
+      });
+  }, [selectedMedia, selectedObjective]);
+
+  // キーワード検索用のuseEffect（既存のまま）
+  useEffect(() => {
+    console.log('useEffect実行 - 検索キーワード:', bubbleSearchKeyword);
+    
+    // 空のキーワードの場合はAPIを呼び出さない
+    if (!bubbleSearchKeyword || bubbleSearchKeyword.trim() === '') {
+      console.log('キーワードが空のため、API呼び出しをスキップ');
+      return;
+    }
+    
+    // 新しいAPIエンドポイント: /api/influencers
+    const API_ENDPOINT = '/api/influencers';
+
+    const url = new URL(API_ENDPOINT, window.location.origin);
+    url.searchParams.append('keyword', bubbleSearchKeyword);
+
+    console.log('API呼び出しURL:', url.toString());
+
+    fetch(url.toString())
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`Network response was not ok, status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        // データ形式を変換（実際のカラム名に合わせて修正）
         const formattedData = data.map((item: any) => ({
           name: item['アカウント名'] || item['ハンドル名'],
-          cpm: item['CPM'],
-          acquisitionCost: item['単価数値'],
-          campaignCount: item['集計元n数'],
+          cpm: Number(item['CPM']) || 0, // 数値型に変換
+          acquisitionCost: Number(item['単価数値']) || 0, // 数値型に変換（スペースなし）
+          campaignCount: Number(item['集計元n数']) || 0, // 数値型に変換
           category: item['モデルカテゴリ'],
           color: `#${Math.floor(Math.random()*16777215).toString(16)}`,
           engagement: 0,
@@ -270,11 +397,25 @@ export default function UltraModernDashboard() {
         console.error('データの取得に失敗しました:', error);
         setRealData([]); 
       });
-  }, [selectedMedia, selectedObjective]);
+  }, [bubbleSearchKeyword]);
 
-  // プルダウンオプション生成
-  const mediaOptions = Array.from(new Set(sheetData.map(item => item.media)))
-  const objectiveOptions = Array.from(new Set(sheetData.map(item => item.purpose)))
+  // 目的の動的フィルタリング
+  const availableObjectives = useMemo(() => {
+    if (selectedMedia === 'all') {
+      return Array.from(new Set(sheetData.map(item => item.purpose)));
+    }
+    return Array.from(new Set(
+      sheetData
+        .filter(item => item.media === selectedMedia)
+        .map(item => item.purpose)
+    ));
+  }, [selectedMedia]);
+
+  // 媒体選択時の処理
+  const handleMediaChange = (media: string) => {
+    setSelectedMedia(media);
+    setSelectedObjective(''); // 目的をリセット
+  };
 
   const handleSendMessage = () => {
     if (!inputValue.trim()) return
@@ -403,15 +544,16 @@ export default function UltraModernDashboard() {
       <Card className="bg-gray-900/70 backdrop-blur-xl border border-gray-700/50">
         <CardContent className="p-6">
           <div className="grid grid-cols-2 gap-6">
+            {/* 媒体選択 */}
             <div>
               <label className="text-sm text-gray-400 mb-2 block">媒体</label>
-              <Select value={selectedMedia} onValueChange={setSelectedMedia}>
+              <Select value={selectedMedia} onValueChange={handleMediaChange}>
                 <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
                   <SelectValue placeholder="媒体を選択してください" />
                 </SelectTrigger>
                 <SelectContent className="bg-gray-800 border-gray-700">
                   <SelectItem value="all">すべて</SelectItem>
-                  {mediaOptions.map((media) => (
+                  {Array.from(new Set(sheetData.map(item => item.media))).map((media) => (
                     <SelectItem key={media} value={media}>
                       {media}
                     </SelectItem>
@@ -419,30 +561,54 @@ export default function UltraModernDashboard() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* 目的選択（Combobox） */}
             <div>
               <label className="text-sm text-gray-400 mb-2 block">目的</label>
-              <Select value={selectedObjective} onValueChange={setSelectedObjective}>
-                <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
-                  <SelectValue placeholder="目的を選択してください" />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-800 border-gray-700">
-                  <SelectItem value="all">すべて</SelectItem>
-                  {objectiveOptions.map((objective) => (
-                    <SelectItem key={objective} value={objective}>
-                      {objective}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className={cn(
+                      "w-full justify-between bg-gray-800 border-gray-700 text-white hover:bg-gray-700",
+                      !selectedObjective && "text-gray-400"
+                    )}
+                  >
+                    {selectedObjective || "目的を選択してください"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0 bg-gray-800 border-gray-700">
+                  <Command className="bg-gray-800">
+                    <CommandInput placeholder="目的を検索..." className="text-white" />
+                    <CommandList>
+                      <CommandEmpty>目的が見つかりません。</CommandEmpty>
+                      <CommandGroup>
+                        {availableObjectives.map((objective) => (
+                          <CommandItem
+                            key={objective}
+                            value={objective}
+                            onSelect={(currentValue) => {
+                              setSelectedObjective(currentValue === selectedObjective ? "" : currentValue);
+                            }}
+                            className="text-white hover:bg-gray-700"
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedObjective === objective ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {objective}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
-          </div>
-          {/* デバッグ情報 */}
-          <div className="mt-4 p-3 bg-gray-800 rounded-lg">
-            <p className="text-xs text-gray-400">デバッグ情報:</p>
-            <p className="text-xs text-gray-300">選択媒体: {selectedMedia}</p>
-            <p className="text-xs text-gray-300">選択目的: {selectedObjective}</p>
-            <p className="text-xs text-gray-300">データ件数: {realData.length}件</p>
-            <p className="text-xs text-gray-300">データ: {JSON.stringify(realData.slice(0, 2))}</p>
           </div>
         </CardContent>
       </Card>
@@ -537,7 +703,12 @@ export default function UltraModernDashboard() {
                     />
                     <Tooltip content={<CustomTooltip />} />
                     {realData.length > 0 ? (
-                      <Scatter data={realData} shape={CustomDot} />
+                      <>
+                        <Scatter data={realData} shape={CustomDot} />
+                        <text x="50%" y="90%" textAnchor="middle" fill="#10B981" fontSize="12">
+                          データ取得成功: {realData.length}件
+                        </text>
+                      </>
                     ) : (
                       <text x="50%" y="50%" textAnchor="middle" fill="#9CA3AF" fontSize="14">
                         データを選択してください (realData: {realData.length}件)
