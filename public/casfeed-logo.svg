@@ -1,0 +1,31 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="1024" height="1024" fill="#3A4556"/>
+<g transform="translate(170, 283)">
+<path d="M0 40 L0 80 L40 80 L40 40 Z M50 40 L50 80 L90 80 L90 40 Z M100 40 L100 80 L140 80 L140 40 Z" fill="white" stroke="white" stroke-width="6" stroke-linejoin="round"/>
+<path d="M25 15 L25 35 L15 35 L30 15 L45 35 L35 35 L35 15 Z" fill="#7DD3C0"/>
+<path d="M75 15 L75 35 L65 35 L80 15 L95 35 L85 35 L85 15 Z" fill="#7DD3C0"/>
+<path d="M125 15 L125 35 L115 35 L130 15 L145 35 L135 35 L135 15 Z" fill="#7DD3C0"/>
+</g>
+<g transform="translate(530, 283)">
+<rect x="0" y="0" width="170" height="170" rx="40" fill="url(#gradient1)"/>
+<rect x="45" y="45" width="170" height="170" rx="40" fill="url(#gradient2)"/>
+<rect x="90" y="90" width="170" height="170" rx="40" fill="url(#gradient3)"/>
+<path d="M200 180 L220 200 L270 150" stroke="#2D3748" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</g>
+<text x="512" y="650" font-family="Arial, sans-serif" font-size="140" font-weight="bold" fill="white" text-anchor="middle">casfeed</text>
+<defs>
+<linearGradient id="gradient1" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0%" stop-color="#7DD3C0"/>
+<stop offset="100%" stop-color="#5FB3A1"/>
+</linearGradient>
+<linearGradient id="gradient2" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0%" stop-color="#6BA3D8"/>
+<stop offset="100%" stop-color="#5089C6"/>
+</linearGradient>
+<linearGradient id="gradient3" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0%" stop-color="#E07EBF"/>
+<stop offset="100%" stop-color="#FFB4A2"/>
+</linearGradient>
+</defs>
+</svg>
+

@@ -28,18 +28,32 @@ export async function GET(request: Request) {
       priceRange
     });
 
+    // 媒体ごとの参照ビューを決定
+    const mediaToView: Record<string, string> = {
+      TikTok: 'v_tiktok_raw_data',
+      Instagram: 'v_instagram_raw_data',
+      X: 'v_x_raw_data'
+    };
+
+    // 既定は casfeed だが、selectedMedia が特定媒体ならビューを使う
+    const table = selectedMedia && selectedMedia !== 'all'
+      ? mediaToView[selectedMedia] || 'casfeed'
+      : 'casfeed';
+
     // Supabaseクエリの構築
     let query = supabase
-      .from('casfeed')
+      .from(table)
       .select('*');
 
     // 検索クエリによる絞り込み（複数カラムを横断検索）
     if (searchQuery && searchQuery.trim() !== '') {
-      const searchTerms = searchQuery.trim().split(/\s+/); // 空白で区切って複数キーワードに対応
-      
-      // 各検索語について、複数カラムで検索
+      const searchTerms = searchQuery.trim().split(/\s+/);
+      const like = (term: string) =>
+        selectedMedia && selectedMedia !== 'all'
+          ? `product_genre.ilike.%${term}%,product.ilike.%${term}%,model_category.ilike.%${term}%,account_name.ilike.%${term}%,handle_name.ilike.%${term}%,objective.ilike.%${term}%`
+          : `商材ジャンル.ilike.%${term}%,商品.ilike.%${term}%,モデルカテゴリ.ilike.%${term}%,媒体.ilike.%${term}%,目的.ilike.%${term}%`;
       searchTerms.forEach(term => {
-        query = query.or(`商材ジャンル.ilike.%${term}%,商品.ilike.%${term}%,モデルカテゴリ.ilike.%${term}%,媒体.ilike.%${term}%,目的.ilike.%${term}%`);
+        query = query.or(like(term));
       });
     }
 
@@ -47,18 +61,29 @@ export async function GET(request: Request) {
     if (selectedCategories && selectedCategories !== '') {
       const categories = selectedCategories.split(',').filter(cat => cat.trim() !== '');
       if (categories.length > 0) {
-        query = query.in('モデルカテゴリ', categories);
+        if (selectedMedia && selectedMedia !== 'all') {
+          query = query.in('model_category', categories);
+        } else {
+          query = query.in('モデルカテゴリ', categories);
+        }
       }
     }
 
-    // 媒体フィルター
-    if (selectedMedia && selectedMedia !== '' && selectedMedia !== 'all') {
-      query = query.eq('媒体', selectedMedia);
+    // 媒体フィルター（casfeed のみ必要。ビューは媒体固定のため不要）
+    if ((!selectedMedia || selectedMedia === 'all') && selectedMedia !== '' ) {
+      // casfeed を参照する場合のみ媒体で絞り込み
+      if (selectedMedia && selectedMedia !== 'all') {
+        query = query.eq('媒体', selectedMedia);
+      }
     }
 
     // 目的フィルター
     if (selectedObjective && selectedObjective !== '' && selectedObjective !== 'all') {
-      query = query.eq('目的', selectedObjective);
+      if (selectedMedia && selectedMedia !== 'all') {
+        query = query.eq('objective', selectedObjective);
+      } else {
+        query = query.eq('目的', selectedObjective);
+      }
     }
 
     // CPM範囲フィルター
@@ -85,7 +110,7 @@ export async function GET(request: Request) {
       }
     }
 
-    console.log('Search API Route: Supabaseクエリ実行開始');
+    console.log('Search API Route: Supabaseクエリ実行開始 - table =', table);
 
     // Supabaseクエリを実行
     const { data, error } = await query;

@@ -11,8 +11,6 @@ import {
   Target,
   Send,
   Sparkles,
-  Sun,
-  Moon,
   Heart,
   SlidersHorizontal,
   Plus,
@@ -188,12 +186,16 @@ function CountUpNumber({ target, prefix = "", suffix = "" }: { target: number; p
 
 export default function UltraModernDashboard() {
   const [activeNav, setActiveNav] = useState("dashboard")
-  const [isDarkMode, setIsDarkMode] = useState(true)
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
       type: "ai",
-      content: "こんにちは！Dify AIアシスタントです。インフルエンサー選定やキャンペーン戦略について、何でもお気軽にお聞きください。例えば：\n\n• 「美容系のインフルエンサーを探したい」\n• 「10万円以下の予算で効果的なキャンペーンを組みたい」\n• 「Z世代向けのSNS戦略について教えて」",
+      content:
+        "以下のような検索ができます。\n\n" +
+        "• Xのヘアケア商材でエンゲージメント単価が安いインフルエンサー\n" +
+        "• TikTokのスキンケアでリーチ単価が安いインフルエンサー\n" +
+        "• Instagramで家電ジャンルのCPMが低いインフルエンサー\n" +
+        "• 予算10万円で効果の高い候補を提案して",
     },
   ])
   const [inputValue, setInputValue] = useState("")
@@ -209,7 +211,7 @@ export default function UltraModernDashboard() {
   const [dashboardObjective, setDashboardObjective] = useState('リーチ');
 
   // 検索フィルター状態
-  const [selectedMedia, setSelectedMedia] = useState("all")
+  const [selectedMedia, setSelectedMedia] = useState("TikTok")
   const [selectedObjective, setSelectedObjective] = useState("all")
   const [selectedModelCategory, setSelectedModelCategory] = useState("all")
   const [selectedProductGenre, setSelectedProductGenre] = useState("all")
@@ -267,8 +269,17 @@ export default function UltraModernDashboard() {
   // 連動フィルタリング用の関数
   const updateAvailableOptions = async (field: string, filters: any) => {
     try {
-      const url = new URL('/api/schema', window.location.origin);
-      url.searchParams.append('field', field);
+      // 日本語フィールド名 → API用カラム名
+      const fieldMap: Record<string, string> = {
+        '目的': 'objective',
+        'モデルカテゴリ': 'model_category',
+        '商材ジャンル': 'product_genre',
+        '商品': 'product',
+      };
+      const apiField = fieldMap[field] || field;
+
+      const url = new URL('/api/influencer/schema', window.location.origin);
+      url.searchParams.append('field', apiField);
       
       // フィルターを適用（空のオブジェクトの場合は全データを取得）
       if (Object.keys(filters).length > 0) {
@@ -330,29 +341,20 @@ export default function UltraModernDashboard() {
   const handleObjectiveChange = (objective: string) => {
     console.log('目的選択:', objective, '媒体:', selectedMedia);
     setSelectedObjective(objective);
-    setSelectedModelCategory('all');
     setSelectedProductGenre('all');
     setSelectedProduct('all');
+    setSelectedModelCategory('all');
     
-    // モデルカテゴリの選択肢を更新
-    updateAvailableOptions('モデルカテゴリ', { 
+    // 商材ジャンルの選択肢を更新
+    updateAvailableOptions('商材ジャンル', { 
       media: selectedMedia, 
       objective 
     });
   };
 
-  // モデルカテゴリ選択時の処理
+  // モデルカテゴリ選択時の処理（最後の項目なので何も更新しない）
   const handleModelCategoryChange = (modelCategory: string) => {
     setSelectedModelCategory(modelCategory);
-    setSelectedProductGenre('all');
-    setSelectedProduct('all');
-    
-    // 商材ジャンルの選択肢を更新
-    updateAvailableOptions('商材ジャンル', { 
-      media: selectedMedia, 
-      objective: selectedObjective, 
-      modelCategory 
-    });
   };
 
   // 商材ジャンル選択時の処理
@@ -364,8 +366,20 @@ export default function UltraModernDashboard() {
     updateAvailableOptions('商品', { 
       media: selectedMedia, 
       objective: selectedObjective, 
-      modelCategory: selectedModelCategory, 
       productGenre 
+    });
+  };
+
+  // 商品選択時の処理
+  const handleProductChange = (product: string) => {
+    setSelectedProduct(product);
+    
+    // モデルカテゴリの選択肢を更新
+    updateAvailableOptions('モデルカテゴリ', { 
+      media: selectedMedia, 
+      objective: selectedObjective, 
+      productGenre: selectedProductGenre,
+      product
     });
   };
 
@@ -416,6 +430,13 @@ export default function UltraModernDashboard() {
       const result = await response.json();
       console.log('検索結果:', result);
       console.log('取得件数:', result.data?.length || 0);
+      if (result?.data && result.data.length > 0) {
+        try {
+          console.log('検索結果 先頭要素のキー:', Object.keys(result.data[0]));
+          const sample = result.data[0];
+          console.log('サンプル値: account_name=', sample.account_name, 'handle_name=', sample.handle_name, 'cpm=', sample.cpm, 'reach_cost=', sample.reach_cost, 'fq=', sample.fq, 'ctr/car=', sample.ctr ?? sample.car, 'cpc=', sample.cpc);
+        } catch (e) {}
+      }
       
       if (result.success) {
         setSearchResults(result.data);
@@ -430,6 +451,95 @@ export default function UltraModernDashboard() {
       setIsSearching(false);
     }
   };
+
+  // ===== 媒体別サマリー用ヘルパー =====
+  type MetricType = 'currency' | 'percent' | 'number'
+  type MetricDef = { label: string; keys: string[]; type: MetricType }
+
+  // 値を数値に変換（無効値は undefined）
+  const toNumber = (value: unknown): number | undefined => {
+    if (value === null || value === undefined) return undefined
+    const n = typeof value === 'number' ? value : Number(value)
+    return Number.isFinite(n) ? n : undefined
+  }
+
+  // 指定キーのどれかから数値を取得
+  const pickNumberByKeys = (row: any, keys: string[]): number | undefined => {
+    for (const key of keys) {
+      if (Object.prototype.hasOwnProperty.call(row, key)) {
+        const n = toNumber(row[key])
+        if (n !== undefined) return n
+      }
+    }
+    return undefined
+  }
+
+  // 統計量を計算
+  const computeStats = (values: number[]) => {
+    if (!values || values.length === 0) return null
+    const sorted = [...values].sort((a, b) => a - b)
+    const sum = sorted.reduce((s, v) => s + v, 0)
+    const avg = sum / sorted.length
+    const min = sorted[0]
+    const max = sorted[sorted.length - 1]
+    const mid = Math.floor(sorted.length / 2)
+    const median = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid]
+    return { avg, max, min, median, count: sorted.length }
+  }
+
+  // 表示フォーマット
+  const formatValue = (value: number | null | undefined, type: MetricType): string => {
+    if (value === null || value === undefined || !Number.isFinite(value)) return '—'
+    switch (type) {
+      case 'currency':
+        return `¥${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      case 'percent':
+        return `${(value * 100).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
+      default:
+        return `${value.toLocaleString(undefined, { maximumFractionDigits: 3 })}`
+    }
+  }
+
+  // 媒体別メトリクス定義（RAWビュー/既存casfeed両対応のキー候補を列挙）
+  const metricsByMedia: Record<string, MetricDef[]> = {
+    TikTok: [
+      { label: 'リーチ単価', type: 'currency', keys: ['reach_cost', '単価数値'] },
+      { label: 'CPM', type: 'currency', keys: ['cpm', 'CPM'] },
+      { label: 'FQ', type: 'number', keys: ['fq', 'FQ'] },
+      { label: 'CTR', type: 'percent', keys: ['ctr', 'CTR'] },
+      { label: 'CPC', type: 'currency', keys: ['cpc', 'CPC'] },
+      { label: '視聴率', type: 'percent', keys: ['view_rate'] },
+      { label: '視聴単価', type: 'currency', keys: ['cpv'] },
+      { label: '2秒視聴率', type: 'percent', keys: ['view_rate_2s'] },
+      { label: '2秒視聴単価', type: 'currency', keys: ['cpv_2s'] },
+      { label: '6秒視聴率', type: 'percent', keys: ['view_rate_6s'] },
+      { label: '6秒視聴単価', type: 'currency', keys: ['cpv_6s'] },
+      { label: '完全視聴率', type: 'percent', keys: ['completion_rate'] },
+      { label: '完全視聴単価', type: 'currency', keys: ['cpvc'] }
+    ],
+    Instagram: [
+      { label: 'リーチ単価', type: 'currency', keys: ['reach_cost', '単価数値'] },
+      { label: 'CPM', type: 'currency', keys: ['cpm', 'CPM'] },
+      { label: 'FQ', type: 'number', keys: ['fq', 'FQ'] },
+      { label: 'CTR', type: 'percent', keys: ['ctr', 'CTR'] },
+      { label: 'CPC', type: 'currency', keys: ['cpc', 'CPC'] },
+      { label: '視聴率', type: 'percent', keys: ['view_rate'] },
+      { label: '視聴単価', type: 'currency', keys: ['cpv'] },
+      { label: '25％視聴率', type: 'percent', keys: ['view_rate_25p'] },
+      { label: '25％視聴単価', type: 'currency', keys: ['cpv_25p'] },
+      { label: '完全視聴率', type: 'percent', keys: ['completion_rate'] },
+      { label: '完全視聴単価', type: 'currency', keys: ['cpvc'] }
+    ],
+    X: [
+      { label: 'リーチ単価', type: 'currency', keys: ['reach_cost', '単価数値'] },
+      { label: 'CPM', type: 'currency', keys: ['cpm', 'CPM'] },
+      { label: 'FQ', type: 'number', keys: ['fq', 'FQ'] },
+      { label: 'CTR', type: 'percent', keys: ['ctr', 'CTR'] },
+      { label: 'CPC', type: 'currency', keys: ['cpc', 'CPC'] },
+      { label: 'ENG率', type: 'percent', keys: ['engagement_rate'] },
+      { label: 'CPE', type: 'currency', keys: ['cpe'] }
+    ]
+  }
 
   // リスト管理状態
   const [activeList, setActiveList] = useState(1)
@@ -566,14 +676,12 @@ export default function UltraModernDashboard() {
     return matchesSearch && matchesCategory && matchesStatus
   })
 
-  // 初期化時に各項目の選択肢を取得
+  // 媒体選択に応じて目的の選択肢を取得（新APIは媒体指定が必須のためガード）
   useEffect(() => {
-    // 初期化時は全データから選択肢を取得
-    updateAvailableOptions('目的', {});
-    updateAvailableOptions('モデルカテゴリ', {});
-    updateAvailableOptions('商材ジャンル', {});
-    updateAvailableOptions('商品', {});
-  }, []);
+    if (selectedMedia && selectedMedia !== 'all') {
+      updateAvailableOptions('目的', { media: selectedMedia });
+    }
+  }, [selectedMedia]);
 
   // パフォーマンスデータ取得用のuseEffect
   useEffect(() => {
@@ -892,6 +1000,169 @@ export default function UltraModernDashboard() {
   const handleDashboardMediaChange = (media: string) => {
     setDashboardMedia(media);
     setDashboardObjective(''); // 目的をリセット
+  };
+
+  // 簡易Markdownテーブル→HTML変換（表ブロックのみ）。安全のため許可タグのみ出力
+  const hasMarkdownTable = (text: string): boolean => {
+    if (!text) return false;
+    return /\n\s*\|[^\n]+\|\s*\n\s*\|\s*[-: ]+\|/m.test(text);
+  };
+
+  const escapeHtml = (s: string): string => (
+    s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\"/g, '&quot;')
+  );
+
+  const linkify = (s: string): string => {
+    return s.replace(/(https?:\/\/[\w\-._~:/?#\[\]@!$&'()*+,;=%]+)/g, (m) => {
+      try {
+        const url = new URL(m);
+        if (url.protocol === 'http:' || url.protocol === 'https:') {
+          const safe = escapeHtml(m);
+          return `<a href="${safe}" target="_blank" rel="noopener noreferrer" class="text-teal-400 underline">${safe}</a>`;
+        }
+        return escapeHtml(m);
+      } catch {
+        return escapeHtml(m);
+      }
+    });
+  };
+
+  const convertMarkdownTablesToHtml = (text: string): string => {
+    if (!text) return '';
+    const lines = text.split(/\r?\n/);
+    let i = 0;
+    let html = '';
+    const openPara = () => { html += '<p class="mb-2">'; };
+    const closePara = () => { html += '</p>'; };
+    let inPara = false;
+
+    const renderTable = (header: string, sep: string, bodyLines: string[]): string => {
+      const splitRow = (row: string) => row.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+      const headers = splitRow(header);
+      const rows = bodyLines.map(splitRow);
+      let t = '';
+      t += '<div class="overflow-x-auto"><table class="min-w-full border border-gray-700 text-sm">';
+      t += '<thead><tr>' + headers.map(h => `<th class="border border-gray-700 bg-gray-800 px-3 py-2 text-left">${linkify(escapeHtml(h))}</th>`).join('') + '</tr></thead>';
+      t += '<tbody>' + rows.map(r => '<tr>' + r.map(c => `<td class="border border-gray-700 px-3 py-2">${linkify(escapeHtml(c))}</td>`).join('') + '</tr>').join('') + '</tbody>';
+      t += '</table></div>';
+      return t;
+    };
+
+    while (i < lines.length) {
+      // テーブル開始検出
+      if (/^\s*\|.*\|\s*$/.test(lines[i] || '') && i + 1 < lines.length && /^\s*\|\s*[-: ]+\|.*$/.test(lines[i + 1] || '')) {
+        // 直前の段落を閉じる
+        if (inPara) { closePara(); inPara = false; }
+        const header = lines[i];
+        const sep = lines[i + 1];
+        i += 2;
+        const body: string[] = [];
+        while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) {
+          body.push(lines[i]);
+          i++;
+        }
+        html += renderTable(header, sep, body);
+        continue;
+      }
+
+      // 通常テキスト行
+      if (!inPara) { openPara(); inPara = true; }
+      html += linkify(escapeHtml(lines[i]));
+      html += '<br/>';
+      i++;
+    }
+    if (inPara) closePara();
+    return html;
+  };
+
+  // ------------- 簡易Markdown整形（見出し/箇条書き/リンク/コード/引用） -------------
+  const extractSummary = (text: string): { bullets: string[]; rest: string } => {
+    const lines = text.split(/\r?\n/);
+    const bullets: string[] = [];
+    let i = 0;
+    while (i < lines.length && bullets.length < 5) {
+      const m = lines[i].match(/^\s*(?:[-•]\s+|\d+\.\s+)(.+)$/);
+      if (!m) break;
+      bullets.push(m[1].trim());
+      i++;
+    }
+    const rest = lines.slice(i).join('\n');
+    return { bullets, rest };
+  };
+
+  const simpleMarkdownToHtml = (raw: string): string => {
+    // コードブロック
+    let text = raw.replace(/```([\s\S]*?)```/g, (_m, code) => {
+      return `<pre class="bg-gray-800 border border-gray-700 rounded-md p-3 overflow-auto"><code>${escapeHtml(code)}</code></pre>`;
+    });
+    // 見出し
+    text = text.replace(/^###\s+(.+)$/gm, '<h4 class="text-white font-semibold mt-4 mb-2">$1</h4>');
+    text = text.replace(/^##\s+(.+)$/gm, '<h3 class="text-white font-bold mt-5 mb-2">$1</h3>');
+    text = text.replace(/^#\s+(.+)$/gm, '<h2 class="text-white font-bold mt-6 mb-3">$1</h2>');
+    // 引用
+    text = text.replace(/^>\s+(.+)$/gm, '<blockquote class="border-l-4 border-gray-600 pl-3 text-gray-300">$1</blockquote>');
+    // ボールド/イタリック
+    text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    // リンク [text](url)
+    text = text.replace(/\[([^\]]+)\]\((https?:[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" class="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-700 hover:border-teal-500 text-teal-400">$1</a>');
+    // 箇条書き
+    const lines = text.split(/\r?\n/);
+    let html = '';
+    let inUl = false, inOl = false, inPara = false;
+    const closePara = () => { if (inPara) { html += '</p>'; inPara = false; } };
+    const closeUl = () => { if (inUl) { html += '</ul>'; inUl = false; } };
+    const closeOl = () => { if (inOl) { html += '</ol>'; inOl = false; } };
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (/^\s*(?:- |• )/.test(line)) {
+        closePara(); closeOl();
+        if (!inUl) { html += '<ul class="list-disc pl-5 space-y-1">'; inUl = true; }
+        html += `<li>${line.replace(/^\s*(?:- |• )/, '')}</li>`;
+        continue;
+      }
+      if (/^\s*\d+\.\s+/.test(line)) {
+        closePara(); closeUl();
+        if (!inOl) { html += '<ol class="list-decimal pl-5 space-y-1">'; inOl = true; }
+        html += `<li>${line.replace(/^\s*\d+\.\s+/, '')}</li>`;
+        continue;
+      }
+      // 空行は段落区切り
+      if (/^\s*$/.test(line)) {
+        closePara(); closeUl(); closeOl();
+        continue;
+      }
+      // 既にh/blockquote/preで置換済みの行はそのまま
+      if (/^<h[2-4]|^<blockquote|^<pre/.test(line)) { closePara(); closeUl(); closeOl(); html += line; continue; }
+      if (!inPara) { html += '<p class="leading-relaxed">'; inPara = true; }
+      html += line + ' ';
+    }
+    closePara(); closeUl(); closeOl();
+    return html;
+  };
+
+  const renderAiContent = (content: string) => {
+    // 要約抽出（先頭の箇条書き最大5件）
+    const { bullets, rest } = extractSummary(content);
+    const base = hasMarkdownTable(rest) ? convertMarkdownTablesToHtml(rest) : simpleMarkdownToHtml(rest);
+
+    return (
+      <div className="prose prose-invert max-w-none">
+        {bullets.length > 0 && (
+          <div className="mb-3 rounded-md border border-teal-600/30 bg-gray-800/60 p-3">
+            <div className="text-sm text-teal-300 font-semibold mb-1">要点</div>
+            <ul className="list-disc pl-5 text-sm space-y-1">
+              {bullets.slice(0, 5).map((b, i) => (<li key={i}>{b}</li>))}
+            </ul>
+          </div>
+        )}
+        <div className="text-sm" dangerouslySetInnerHTML={{ __html: base }} />
+      </div>
+    );
   };
 
   async function handleSendMessage() {
@@ -1340,10 +1611,10 @@ export default function UltraModernDashboard() {
       </div>
 
       {/* メインコンテンツ 2カラム */}
-      <div className="grid grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-stretch">
         {/* パフォーマンス可視化 */}
-        <div className="col-span-2">
-          <Card className="bg-gray-900/70 backdrop-blur-xl border border-gray-700/50 h-full">
+        <div>
+          <Card className="bg-gray-900/70 backdrop-blur-xl border border-gray-700/50 h-[460px] lg:h-[520px]">
             <CardHeader className="pb-6">
               <CardTitle className="text-xl font-bold text-white flex items-center gap-3">
                 <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-teal-500 rounded-lg flex items-center justify-center">
@@ -1352,10 +1623,10 @@ export default function UltraModernDashboard() {
                 {dashboardObjective ? `${dashboardObjective}パフォーマンス可視化` : 'パフォーマンス可視化'}
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="h-[400px] relative">
+            <CardContent className="h-full p-4 pt-3 pb-5">
+              <div className="h-full relative px-1 pb-2 overflow-visible">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ScatterChart margin={{ top: 20, right: 20, bottom: 60, left: 80 }}>
+                  <ScatterChart margin={{ top: 10, right: 12, bottom: 56, left: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
                     {/* 十字ガイド線 */}
                     {crosshairPosition && (
@@ -1379,24 +1650,23 @@ export default function UltraModernDashboard() {
                       dataKey="cpm"
                       name="CPM実績"
                       tickFormatter={(value) => `¥${Number(value).toFixed(2)}`}
-                      label={{ value: "CPM単価 (円)", position: "insideBottom", offset: -10 }}
-                      tick={{ fill: "#9CA3AF", fontSize: 12 }}
+                      label={{ value: "CPM単価 (円)", position: "insideBottom", offset: -6, style: { fontSize: 11, fill: '#A3A3A3' } }}
+                      tick={{ fill: "#A3A3A3", fontSize: 12 }}
+                      tickMargin={8}
                     />
                     <YAxis
                       type="number"
                       dataKey="acquisitionCost"
                       name="獲得単価"
                       tickFormatter={(value) => `¥${Number(value).toFixed(2)}`}
-                      label={{ value: `${currentPriceLabel} (円)`, angle: -90, position: "insideLeft" }}
-                      tick={{ fill: "#9CA3AF", fontSize: 12 }}
+                      label={{ value: `${currentPriceLabel} (円)`, angle: -90, position: "insideLeft", offset: 6, style: { fontSize: 11, fill: '#A3A3A3' } }}
+                      tick={{ fill: "#A3A3A3", fontSize: 12 }}
+                      tickMargin={8}
                     />
                     <Tooltip content={<CustomTooltip />} />
                     {realData.length > 0 ? (
                       <>
                         <Scatter data={realData} shape={CustomDot} />
-                        <text x="50%" y="90%" textAnchor="middle" fill="#10B981" fontSize="12">
-                          データ取得成功: {realData.length}件
-                        </text>
                       </>
                     ) : (
                       <text x="50%" y="50%" textAnchor="middle" fill="#9CA3AF" fontSize="14">
@@ -1410,21 +1680,21 @@ export default function UltraModernDashboard() {
           </Card>
         </div>
 
-                  {/* AIインフルエンサー検索 */}
+                {/* AIインフルエンサー検索 */}
           <div className="space-y-6">
             {/* チャットインターフェース */}
-            <Card className="bg-gray-900/70 backdrop-blur-xl border border-gray-700/50">
+            <Card className="bg-gray-900/70 backdrop-blur-xl border border-gray-700/50 h-[460px] lg:h-[520px]">
               <CardHeader className="pb-4">
                 <CardTitle className="text-lg font-bold text-white flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-teal-400" />
                   AI アシスタント
                 </CardTitle>
                 <p className="text-sm text-gray-400 mt-1">
-                  Dify AIと対話して、インフルエンサー選定やキャンペーン戦略について相談できます
+                  AIアシスタントと対話して 過後実績からインフルエンサーが検索できます
                 </p>
               </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="h-48 overflow-y-auto space-y-3">
+            <CardContent className="h-[calc(100%-64px)] flex flex-col space-y-4">
+              <div className="flex-1 overflow-y-auto space-y-3 pr-1">
                 {messages.map((message) => (
                   <div key={message.id} className={`flex ${message.type === "user" ? "justify-end" : "justify-start"}`}>
                     <div className="flex items-start gap-2 max-w-[85%]">
@@ -1440,13 +1710,13 @@ export default function UltraModernDashboard() {
                             : "bg-gray-800 text-gray-200 border border-gray-700"
                         }`}
                       >
-                        {message.content}
+                        {renderAiContent(message.content)}
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 pt-1">
                 <Input
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
@@ -1462,49 +1732,6 @@ export default function UltraModernDashboard() {
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* 推奨インフルエンサー */}
-          <Card className="bg-gray-900/70 backdrop-blur-xl border border-gray-700/50">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg font-bold text-white">推奨インフルエンサー</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {searchResults.length > 0 ? (
-                searchResults.slice(0, 3).map((influencer, index) => (
-                  <Card
-                    key={`dashboard-${index}`}
-                    className="bg-gray-800/50 border border-gray-700 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/20 transition-all duration-300 cursor-pointer group"
-                    onClick={() => openInfluencerModal(influencer)}
-                  >
-                                         <CardContent className="p-4">
-                       <div className="flex items-center gap-3">
-                         <div className="flex-1">
-                          <h4 className="font-semibold text-white group-hover:text-purple-400 transition-colors">
-                            {influencer.name || influencer.アカウント名 || influencer.ハンドル名 || 'Unknown'}
-                          </h4>
-                          <p className="text-xs text-gray-400 mb-1">{influencer.モデルカテゴリ || 'N/A'}</p>
-                          <p className="text-xs text-gray-500">
-                            CPM: ¥{influencer.CPM?.toFixed(2) || 'N/A'} | 単価: ¥{influencer.単価数値?.toFixed(2) || 'N/A'}
-                          </p>
-                        </div>
-                        <Button
-                          size="sm"
-                          className="bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-lg shadow-purple-500/25 opacity-0 group-hover:opacity-100 transition-all"
-                        >
-                          詳細
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              ) : (
-                <div className="text-center py-8">
-                  <div className="text-gray-400 text-sm mb-2">検索を実行すると</div>
-                  <div className="text-gray-500 text-xs">推奨インフルエンサーが表示されます</div>
-                </div>
-              )}
             </CardContent>
           </Card>
         </div>
@@ -1542,59 +1769,9 @@ export default function UltraModernDashboard() {
                 </SelectTrigger>
                 <SelectContent className="bg-gray-800 border-gray-700">
                   <SelectItem value="all">全目的</SelectItem>
-                  <SelectItem value="リーチ">リーチ</SelectItem>
-                  <SelectItem value="動画視聴">動画視聴</SelectItem>
-                  <SelectItem value="トラフィック">トラフィック</SelectItem>
-                  <SelectItem value="完全視聴">完全視聴</SelectItem>
-                  <SelectItem value="ENG">ENG</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="text-sm text-gray-400 mb-2 block">モデルカテゴリ</label>
-              <Select value={selectedModelCategory} onValueChange={handleModelCategoryChange}>
-                <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
-                  <SelectValue placeholder="選択してください" />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-800 border-gray-700">
-                  <SelectItem value="all">全カテゴリ</SelectItem>
-                  <SelectItem value="ライフスタイル">ライフスタイル</SelectItem>
-                  <SelectItem value="モデル">モデル</SelectItem>
-                  <SelectItem value="美容">美容</SelectItem>
-                  <SelectItem value="エンタメ">エンタメ</SelectItem>
-                  <SelectItem value="カップル">カップル</SelectItem>
-                  <SelectItem value="ファミリー">ファミリー</SelectItem>
-                  <SelectItem value="旅行">旅行</SelectItem>
-                  <SelectItem value="料理">料理</SelectItem>
-                  <SelectItem value="企業">企業</SelectItem>
-                  <SelectItem value="スポーツ">スポーツ</SelectItem>
-                  <SelectItem value="スポーツメディア">スポーツメディア</SelectItem>
-                  <SelectItem value="ファッション">ファッション</SelectItem>
-                  <SelectItem value="ガジェット">ガジェット</SelectItem>
-                  <SelectItem value="ママ">ママ</SelectItem>
-                  <SelectItem value="Vtuber">Vtuber</SelectItem>
-                  <SelectItem value="芸人">芸人</SelectItem>
-                  <SelectItem value="コラージュ">コラージュ</SelectItem>
-                  <SelectItem value="推し活">推し活</SelectItem>
-                  <SelectItem value="イラスト">イラスト</SelectItem>
-                  <SelectItem value="ペット">ペット</SelectItem>
-                  <SelectItem value="キャンプ">キャンプ</SelectItem>
-                  <SelectItem value="ヘアアレンジ">ヘアアレンジ</SelectItem>
-                  <SelectItem value="社長">社長</SelectItem>
-                  <SelectItem value="YouTuber">YouTuber</SelectItem>
-                  <SelectItem value="タレント">タレント</SelectItem>
-                  <SelectItem value="アイドル">アイドル</SelectItem>
-                  <SelectItem value="生活情報">生活情報</SelectItem>
-                  <SelectItem value="暮らし">暮らし</SelectItem>
-                  <SelectItem value="美容師">美容師</SelectItem>
-                  <SelectItem value="美容メディア">美容メディア</SelectItem>
-                  <SelectItem value="キッズ">キッズ</SelectItem>
-                  <SelectItem value="Ripre会員">Ripre会員</SelectItem>
-                  <SelectItem value="美容家">美容家</SelectItem>
-                  <SelectItem value="韓ドラ">韓ドラ</SelectItem>
-                  <SelectItem value="ポイ活">ポイ活</SelectItem>
-                  <SelectItem value="to buy動画">to buy動画</SelectItem>
+                  {availableSearchObjectives.map((obj) => (
+                    <SelectItem key={obj} value={obj}>{obj}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -1607,145 +1784,39 @@ export default function UltraModernDashboard() {
                 </SelectTrigger>
                 <SelectContent className="bg-gray-800 border-gray-700">
                   <SelectItem value="all">全ジャンル</SelectItem>
-                  <SelectItem value="日用品">日用品</SelectItem>
-                  <SelectItem value="ヘアケア">ヘアケア</SelectItem>
-                  <SelectItem value="コスメ">コスメ</SelectItem>
-                  <SelectItem value="スキンケア">スキンケア</SelectItem>
-                  <SelectItem value="家電">家電</SelectItem>
-                  <SelectItem value="サービス">サービス</SelectItem>
-                  <SelectItem value="薬品">薬品</SelectItem>
-                  <SelectItem value="食品">食品</SelectItem>
-                  <SelectItem value="スポーツ用品">スポーツ用品</SelectItem>
-                  <SelectItem value="メンズスキンケア">メンズスキンケア</SelectItem>
-                  <SelectItem value="商業施設">商業施設</SelectItem>
-                  <SelectItem value="決済サービス">決済サービス</SelectItem>
-                  <SelectItem value="おもちゃ">おもちゃ</SelectItem>
-                  <SelectItem value="飲料">飲料</SelectItem>
-                  <SelectItem value="ベビー用品">ベビー用品</SelectItem>
-                  <SelectItem value="文房具">文房具</SelectItem>
-                  <SelectItem value="ペット用品">ペット用品</SelectItem>
-                  <SelectItem value="メンズコスメ">メンズコスメ</SelectItem>
-                  <SelectItem value="小売業">小売業</SelectItem>
-                  <SelectItem value="通販サイト">通販サイト</SelectItem>
-                  <SelectItem value="メイク用品">メイク用品</SelectItem>
-                  <SelectItem value="ネイル">ネイル</SelectItem>
-                  <SelectItem value="コスメ・スキンケア">コスメ・スキンケア</SelectItem>
-                  <SelectItem value="生活雑貨">生活雑貨</SelectItem>
-                  <SelectItem value="アプリ">アプリ</SelectItem>
-                  <SelectItem value="美容家電">美容家電</SelectItem>
-                  <SelectItem value="サブスク">サブスク</SelectItem>
-                  <SelectItem value="ヘアオイル">ヘアオイル</SelectItem>
+                  {availableProductGenres.map((pg) => (
+                    <SelectItem key={pg} value={pg}>{pg}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
             <div>
               <label className="text-sm text-gray-400 mb-2 block">商品</label>
-              <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+              <Select value={selectedProduct} onValueChange={handleProductChange}>
                 <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
                   <SelectValue placeholder="選択してください" />
                 </SelectTrigger>
                 <SelectContent className="bg-gray-800 border-gray-700">
                   <SelectItem value="all">全商品</SelectItem>
-                  <SelectItem value="香りづけ剤">香りづけ剤</SelectItem>
-                  <SelectItem value="ヘアオイル">ヘアオイル</SelectItem>
-                  <SelectItem value="スタイリング剤">スタイリング剤</SelectItem>
-                  <SelectItem value="柔軟剤">柔軟剤</SelectItem>
-                  <SelectItem value="ファンデ・スキンケア">ファンデ・スキンケア</SelectItem>
-                  <SelectItem value="ベースメイク">ベースメイク</SelectItem>
-                  <SelectItem value="メガネ洗浄液">メガネ洗浄液</SelectItem>
-                  <SelectItem value="掃除用品">掃除用品</SelectItem>
-                  <SelectItem value="美容液">美容液</SelectItem>
-                  <SelectItem value="シートマスク">シートマスク</SelectItem>
-                  <SelectItem value="柔軟剤・香りづけ剤">柔軟剤・香りづけ剤</SelectItem>
-                  <SelectItem value="トレーニンググッズ">トレーニンググッズ</SelectItem>
-                  <SelectItem value="フレグランス">フレグランス</SelectItem>
-                  <SelectItem value="化粧水">化粧水</SelectItem>
-                  <SelectItem value="洗濯用洗剤">洗濯用洗剤</SelectItem>
-                  <SelectItem value="ドライシャンプー・冷タオル・ヘアカラー">ドライシャンプー・冷タオル・ヘアカラー</SelectItem>
-                  <SelectItem value="歯磨き粉">歯磨き粉</SelectItem>
-                  <SelectItem value="胃腸薬">胃腸薬</SelectItem>
-                  <SelectItem value="保湿クリーム">保湿クリーム</SelectItem>
-                  <SelectItem value="シャンプー＆トリートメント">シャンプー＆トリートメント</SelectItem>
-                  <SelectItem value="オリーブオイル">オリーブオイル</SelectItem>
-                  <SelectItem value="リップ">リップ</SelectItem>
-                  <SelectItem value="サポーター">サポーター</SelectItem>
-                  <SelectItem value="フェイシャルシート">フェイシャルシート</SelectItem>
-                  <SelectItem value="シャンプー&トリートメント">シャンプー&トリートメント</SelectItem>
-                  <SelectItem value="日焼け止め">日焼け止め</SelectItem>
-                  <SelectItem value="電子マネー">電子マネー</SelectItem>
-                  <SelectItem value="アイシャドウ">アイシャドウ</SelectItem>
-                  <SelectItem value="全般">全般</SelectItem>
-                  <SelectItem value="おもちゃ">おもちゃ</SelectItem>
-                  <SelectItem value="ブラシ">ブラシ</SelectItem>
-                  <SelectItem value="トローチ">トローチ</SelectItem>
-                  <SelectItem value="リップクリーム">リップクリーム</SelectItem>
-                  <SelectItem value="アイメイク">アイメイク</SelectItem>
-                  <SelectItem value="アウトレット">アウトレット</SelectItem>
-                  <SelectItem value="クレイパック">クレイパック</SelectItem>
-                  <SelectItem value="クレンジング">クレンジング</SelectItem>
-                  <SelectItem value="メイクブラシ">メイクブラシ</SelectItem>
-                  <SelectItem value="マスカラ">マスカラ</SelectItem>
-                  <SelectItem value="洗顔">洗顔</SelectItem>
-                  <SelectItem value="エナジードリンク">エナジードリンク</SelectItem>
-                  <SelectItem value="入浴剤">入浴剤</SelectItem>
-                  <SelectItem value="全身シャンプー">全身シャンプー</SelectItem>
-                  <SelectItem value="推し活グッズ">推し活グッズ</SelectItem>
-                  <SelectItem value="炭酸飲料">炭酸飲料</SelectItem>
-                  <SelectItem value="クレンジング・洗顔">クレンジング・洗顔</SelectItem>
-                  <SelectItem value="アイブロウ">アイブロウ</SelectItem>
-                  <SelectItem value="セルフカラー剤">セルフカラー剤</SelectItem>
-                  <SelectItem value="ダイエット食品">ダイエット食品</SelectItem>
-                  <SelectItem value="付箋">付箋</SelectItem>
-                  <SelectItem value="電動鼻吸い器">電動鼻吸い器</SelectItem>
-                  <SelectItem value="テーマパーク">テーマパーク</SelectItem>
-                  <SelectItem value="アイライナー">アイライナー</SelectItem>
-                  <SelectItem value="ブランド品">ブランド品</SelectItem>
-                  <SelectItem value="ヘアスタイリング">ヘアスタイリング</SelectItem>
-                  <SelectItem value="フェイスパック">フェイスパック</SelectItem>
-                  <SelectItem value="油">油</SelectItem>
-                  <SelectItem value="豆乳">豆乳</SelectItem>
-                  <SelectItem value="掃除用器具">掃除用器具</SelectItem>
-                  <SelectItem value="コンシーラー">コンシーラー</SelectItem>
-                  <SelectItem value="美容液・ファンデーション">美容液・ファンデーション</SelectItem>
-                  <SelectItem value="調味料">調味料</SelectItem>
-                  <SelectItem value="楽天市場">楽天市場</SelectItem>
-                  <SelectItem value="マッサージチェア">マッサージチェア</SelectItem>
-                  <SelectItem value="掃除用洗剤">掃除用洗剤</SelectItem>
-                  <SelectItem value="ミニネイル">ミニネイル</SelectItem>
-                  <SelectItem value="食器洗剤">食器洗剤</SelectItem>
-                  <SelectItem value="ネイル">ネイル</SelectItem>
-                  <SelectItem value="掃除用具">掃除用具</SelectItem>
-                  <SelectItem value="消臭剤">消臭剤</SelectItem>
-                  <SelectItem value="ヘアカラー剤">ヘアカラー剤</SelectItem>
-                  <SelectItem value="美容液、ファンデーション">美容液、ファンデーション</SelectItem>
-                  <SelectItem value="医薬品">医薬品</SelectItem>
-                  <SelectItem value="キッチンペーパー">キッチンペーパー</SelectItem>
-                  <SelectItem value="オールインワンクリーム">オールインワンクリーム</SelectItem>
-                  <SelectItem value="オールインワン">オールインワン</SelectItem>
-                  <SelectItem value="寝具">寝具</SelectItem>
-                  <SelectItem value="シャンプー＆コンディショナー">シャンプー＆コンディショナー</SelectItem>
-                  <SelectItem value="サプリメント">サプリメント</SelectItem>
-                  <SelectItem value="化粧水＆乳液">化粧水＆乳液</SelectItem>
-                  <SelectItem value="乳液">乳液</SelectItem>
-                  <SelectItem value="エアウォレット">エアウォレット</SelectItem>
-                  <SelectItem value="シミ予防クリーム">シミ予防クリーム</SelectItem>
-                  <SelectItem value="美顔器">美顔器</SelectItem>
-                  <SelectItem value="リップ、アイシャドウ">リップ、アイシャドウ</SelectItem>
-                  <SelectItem value="美容液、クレンジングオイル">美容液、クレンジングオイル</SelectItem>
-                  <SelectItem value="マッサージ器">マッサージ器</SelectItem>
-                  <SelectItem value="脱毛器">脱毛器</SelectItem>
-                  <SelectItem value="シャワーヘッド">シャワーヘッド</SelectItem>
-                  <SelectItem value="フィックスミスト">フィックスミスト</SelectItem>
-                  <SelectItem value="動画視聴サービス">動画視聴サービス</SelectItem>
-                  <SelectItem value="スタリング剤">スタリング剤</SelectItem>
-                  <SelectItem value="リキッドアイカラー">リキッドアイカラー</SelectItem>
-                  <SelectItem value="ボディケア">ボディケア</SelectItem>
-                  <SelectItem value="ラカント">ラカント</SelectItem>
-                  <SelectItem value="アイマスク">アイマスク</SelectItem>
-                  <SelectItem value="化粧下地">化粧下地</SelectItem>
-                  <SelectItem value="ヨーグルト">ヨーグルト</SelectItem>
-                  <SelectItem value="産毛ライナー">産毛ライナー</SelectItem>
+                  {availableProducts.map((p) => (
+                    <SelectItem key={p} value={p}>{p}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm text-gray-400 mb-2 block">モデルカテゴリ</label>
+              <Select value={selectedModelCategory} onValueChange={handleModelCategoryChange}>
+                <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+                  <SelectValue placeholder="選択してください" />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-800 border-gray-700">
+                  <SelectItem value="all">全カテゴリ</SelectItem>
+                  {availableModelCategories.map((mc) => (
+                    <SelectItem key={mc} value={mc}>{mc}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -1822,6 +1893,47 @@ export default function UltraModernDashboard() {
           </div>
         </CardHeader>
         <CardContent>
+          {/* 媒体別サマリー（特定媒体選択時のみ）：表形式 */}
+          {selectedMedia !== 'all' && searchResults.length > 0 && (
+            <div className="mb-6">
+              <div className="text-sm text-gray-400 mb-2">媒体別サマリー（{selectedMedia}）</div>
+              <div className="overflow-auto rounded-md border border-gray-700">
+                <table className="min-w-full text-sm bg-gray-800/60">
+                  <thead>
+                    <tr className="text-gray-300">
+                      <th className="px-4 py-3 text-left bg-gray-900/50">計指標</th>
+                      {metricsByMedia[selectedMedia]?.map((m) => (
+                        <th key={`h-${m.label}`} className="px-4 py-3 text-left bg-gray-900/50 whitespace-nowrap">{m.label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {['平均値', '最大値', '最小値', '中央値'].map((rowLabel) => (
+                      <tr key={rowLabel} className="border-t border-gray-700">
+                        <td className="px-4 py-3 text-gray-300 whitespace-nowrap">{rowLabel}</td>
+                        {metricsByMedia[selectedMedia]?.map((metric) => {
+                          const values: number[] = searchResults
+                            .map((row: any) => pickNumberByKeys(row, metric.keys))
+                            .filter((v): v is number => v !== undefined)
+                          const stats = computeStats(values)
+                          const value = rowLabel === '平均値' ? stats?.avg
+                            : rowLabel === '最大値' ? stats?.max
+                            : rowLabel === '最小値' ? stats?.min
+                            : stats?.median
+                          return (
+                            <td key={`${rowLabel}-${metric.label}`} className="px-4 py-3 text-white whitespace-nowrap">
+                              {formatValue(value, metric.type)}
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="text-[11px] text-gray-500 px-4 py-2 text-right">表示中データに基づく</div>
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {searchResults.length > 0 ? (
               sortResults(searchResults).map((influencer, index) => (
@@ -1830,54 +1942,87 @@ export default function UltraModernDashboard() {
                   className="bg-gray-800/50 border border-gray-700 hover:border-purple-500/50 transition-all duration-300"
                 >
                                      <CardContent className="p-4">
-                     <div className="mb-3">
-                       <div className="flex-1">
+                    <div className="mb-3">
+                      <div className="flex-1">
                         <h4 className="font-semibold text-white">
-                          {influencer.name || influencer.アカウント名 || influencer.ハンドル名 || 'Unknown'}
+                          {influencer.account_name 
+                            || influencer.アカウント名 
+                            || influencer.handle_name 
+                            || influencer.ハンドル名 
+                            || influencer.name
+                            || 'Unknown'}
                         </h4>
+                        {(influencer.handle_name || influencer.ハンドル名) && (
+                          <p className="text-xs text-gray-400">{influencer.handle_name || influencer.ハンドル名}</p>
+                        )}
                         <p className="text-sm text-gray-400">
-                          {influencer.realName || influencer.モデルカテゴリ || 'N/A'}
+                          {influencer.model_category 
+                            || influencer.モデルカテゴリ 
+                            || influencer.realName 
+                            || 'N/A'}
                         </p>
                       </div>
                     </div>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-gray-400">CPM:</span>
-                        <span className="text-white">¥{influencer.CPM?.toFixed(2) || 'N/A'}</span>
+                        <span className="text-white">{formatValue(pickNumberByKeys(influencer, ['cpm', 'CPM']), 'currency')}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-400">単価数値:</span>
-                        <span className="text-white">¥{influencer.単価数値?.toFixed(2) || 'N/A'}</span>
+                        <span className="text-gray-400">リーチ単価:</span>
+                        <span className="text-white">{formatValue(pickNumberByKeys(influencer, ['reach_cost', '単価数値']), 'currency')}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">FQ:</span>
+                        <span className="text-white">{formatValue(pickNumberByKeys(influencer, ['fq', 'FQ']), 'number')}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">CTR:</span>
+                        <span className="text-white">{formatValue(pickNumberByKeys(influencer, ['ctr', 'CTR', 'car']), 'percent')}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">CPC:</span>
+                        <span className="text-white">{formatValue(pickNumberByKeys(influencer, ['cpc', 'CPC']), 'currency')}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-400">媒体:</span>
-                        <span className="text-white">{influencer.媒体 || 'N/A'}</span>
+                        <span className="text-white">{(selectedMedia && selectedMedia !== 'all') ? selectedMedia : (influencer.media || influencer.媒体 || 'N/A')}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-400">目的:</span>
-                        <span className="text-white">{influencer.目的 || 'N/A'}</span>
+                        <span className="text-white">{influencer.objective || influencer.目的 || 'N/A'}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-400">モデルカテゴリ:</span>
-                        <span className="text-white">{influencer.モデルカテゴリ || 'N/A'}</span>
+                        <span className="text-white">{influencer.model_category || influencer.モデルカテゴリ || 'N/A'}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-400">商品実績:</span>
-                        <span className="text-white">{influencer.商品 || 'N/A'}</span>
+                        <span className="text-white">{influencer.product || influencer.商品 || 'N/A'}</span>
                       </div>
                     </div>
                     <div className="flex gap-2 mt-4">
-                      <Button size="sm" className="flex-1 bg-gradient-to-br from-purple-500 to-purple-600">
-                        <Plus className="h-3 w-3 mr-1" />
-                        リストに追加
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-gray-600 text-gray-300 hover:bg-gray-700 bg-transparent"
-                      >
-                        詳細
-                      </Button>
+                      {(() => {
+                        const postUrl: string | undefined = influencer.post_url_display || influencer.post_url
+                        const isValid = typeof postUrl === 'string' && /^https?:\/\//.test(postUrl)
+                        const handle = influencer.handle_name || influencer.ハンドル名 || influencer.account_name || influencer.アカウント名 || ''
+                        const aria = handle ? `投稿リンクを開く（${handle}）` : '投稿リンクを開く'
+                        const onOpen = () => {
+                          if (isValid && postUrl) window.open(postUrl, '_blank', 'noopener,noreferrer')
+                        }
+                        return (
+                          <Button
+                            size="sm"
+                            className="flex-1 bg-gradient-to-br from-purple-500 to-purple-600"
+                            onClick={onOpen}
+                            disabled={!isValid}
+                            aria-label={aria}
+                            title={isValid ? aria : 'URLがありません'}
+                          >
+                            投稿リンクを開く
+                          </Button>
+                        )
+                      })()}
                     </div>
                   </CardContent>
                 </Card>
@@ -2415,9 +2560,9 @@ export default function UltraModernDashboard() {
           {[
             { id: "dashboard", icon: LayoutDashboard, label: "ダッシュボード" },
             { id: "search", icon: Search, label: "インフルエンサー検索" },
-            { id: "lists", icon: Star, label: "リスト管理" },
-            { id: "reports", icon: FileDown, label: "レポート" },
-            { id: "settings", icon: Settings, label: "設定" },
+            // { id: "lists", icon: Star, label: "リスト管理" },
+            // { id: "reports", icon: FileDown, label: "レポート" },
+            // { id: "settings", icon: Settings, label: "設定" },
           ].map(({ id, icon: Icon, label }) => (
             <button
               key={id}
@@ -2443,18 +2588,6 @@ export default function UltraModernDashboard() {
             <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-teal-400 bg-clip-text text-transparent">
               CASFEED
             </h1>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setIsDarkMode(!isDarkMode)}
-                className="w-10 h-10 rounded-lg bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-colors"
-              >
-                {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-              </button>
-              <Avatar className="h-10 w-10 ring-2 ring-purple-500/30">
-                <AvatarImage src="/placeholder.svg?height=40&width=40&text=U" />
-                <AvatarFallback>U</AvatarFallback>
-              </Avatar>
-            </div>
           </div>
         </header>
 
