@@ -216,6 +216,8 @@ export default function UltraModernDashboard() {
   const [selectedModelCategory, setSelectedModelCategory] = useState("all")
   const [selectedProductGenre, setSelectedProductGenre] = useState("all")
   const [selectedProduct, setSelectedProduct] = useState("all")
+  const [startDate, setStartDate] = useState<string | null>(null)
+  const [endDate, setEndDate] = useState<string | null>(null)
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [isSearching, setIsSearching] = useState(false)
   
@@ -223,27 +225,60 @@ export default function UltraModernDashboard() {
   const [sortField, setSortField] = useState('CPM')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
 
+  // ソートフィールドとキーのマッピング
+  const sortFieldKeys: Record<string, string[]> = {
+    'CPM': ['cpm', 'CPM'],
+    'リーチ単価': ['reach_cost', '単価数値'],
+    'FQ': ['fq', 'FQ'],
+    'CTR': ['ctr', 'CTR', 'car'],
+    'CPC': ['cpc', 'CPC'],
+    '単価数値': ['単価数値', 'reach_cost'],
+    'アカウント名': ['account_name', 'アカウント名'],
+    'ハンドル名': ['handle_name', 'ハンドル名'],
+    'モデルカテゴリ': ['model_category', 'モデルカテゴリ'],
+    '商品': ['product', '商品']
+  }
+
   // 並び替え関数
   const sortResults = (results: any[]) => {
     if (!results || results.length === 0) return results;
     
     return [...results].sort((a, b) => {
-      let aValue = a[sortField];
-      let bValue = b[sortField];
+      // ソートフィールドに対応するキー配列を取得
+      const keys = sortFieldKeys[sortField] || [sortField];
       
-      // 数値の場合は数値として比較
-      if (typeof aValue === 'string' && aValue.includes('¥')) {
-        aValue = parseFloat(aValue.replace('¥', '').replace(',', '')) || 0;
-        bValue = parseFloat(bValue.replace('¥', '').replace(',', '')) || 0;
-      } else if (typeof aValue === 'string') {
-        aValue = aValue.toLowerCase();
-        bValue = bValue.toLowerCase();
+      // 数値フィールドの場合はpickNumberByKeysを使用
+      const isNumericField = ['CPM', 'リーチ単価', 'FQ', 'CTR', 'CPC', '単価数値'].includes(sortField);
+      
+      let aValue: any;
+      let bValue: any;
+      
+      if (isNumericField) {
+        // 数値フィールドの場合
+        aValue = pickNumberByKeys(a, keys) ?? 0;
+        bValue = pickNumberByKeys(b, keys) ?? 0;
+      } else {
+        // テキストフィールドの場合
+        aValue = keys.reduce((val: any, key: string) => val ?? a[key], undefined);
+        bValue = keys.reduce((val: any, key: string) => val ?? b[key], undefined);
+        
+        // 文字列の場合は小文字に変換して比較
+        if (typeof aValue === 'string') {
+          aValue = aValue.toLowerCase();
+        }
+        if (typeof bValue === 'string') {
+          bValue = bValue.toLowerCase();
+        }
+        
+        // null/undefinedの場合は空文字として扱う
+        aValue = aValue ?? '';
+        bValue = bValue ?? '';
       }
       
       if (sortDirection === 'asc') {
-        return aValue > bValue ? 1 : -1;
+        return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
       } else {
-        return aValue < bValue ? 1 : -1;
+        return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
       }
     });
   };
@@ -410,8 +445,14 @@ export default function UltraModernDashboard() {
       if (selectedObjective !== 'all') {
         url.searchParams.append('selectedObjective', selectedObjective);
       }
-      
 
+      // 期間フィルター
+      if (startDate) {
+        url.searchParams.append('startDate', startDate);
+      }
+      if (endDate) {
+        url.searchParams.append('endDate', endDate);
+      }
       
       console.log('検索API呼び出し:', url.toString());
       console.log('検索条件:', {
@@ -419,7 +460,9 @@ export default function UltraModernDashboard() {
         objective: selectedObjective,
         modelCategory: selectedModelCategory,
         productGenre: selectedProductGenre,
-        product: selectedProduct
+        product: selectedProduct,
+        startDate: startDate,
+        endDate: endDate
       });
       
       const response = await fetch(url.toString());
@@ -450,6 +493,18 @@ export default function UltraModernDashboard() {
     } finally {
       setIsSearching(false);
     }
+  };
+
+  // 検索条件クリア関数
+  const clearSearchFilters = () => {
+    setSelectedMedia("TikTok");
+    setSelectedObjective("all");
+    setSelectedModelCategory("all");
+    setSelectedProductGenre("all");
+    setSelectedProduct("all");
+    setStartDate(null);
+    setEndDate(null);
+    setSearchResults([]);
   };
 
   // ===== 媒体別サマリー用ヘルパー =====
@@ -1824,10 +1879,30 @@ export default function UltraModernDashboard() {
 
           </div>
 
-
+          {/* 期間フィルター */}
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div>
+              <label className="text-sm text-gray-400 mb-2 block">配信開始日</label>
+              <Input
+                type="date"
+                value={startDate || ''}
+                onChange={(e) => setStartDate(e.target.value || null)}
+                className="bg-gray-800 border-gray-700 text-white"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-gray-400 mb-2 block">配信終了日</label>
+              <Input
+                type="date"
+                value={endDate || ''}
+                onChange={(e) => setEndDate(e.target.value || null)}
+                className="bg-gray-800 border-gray-700 text-white"
+              />
+            </div>
+          </div>
 
           {/* 検索実行ボタン */}
-          <div className="flex justify-center mt-6">
+          <div className="flex justify-center gap-4 mt-6">
             <Button 
               onClick={executeSearch}
               disabled={isSearching}
@@ -1844,6 +1919,14 @@ export default function UltraModernDashboard() {
                   検索実行
                 </>
               )}
+            </Button>
+            <Button 
+              onClick={clearSearchFilters}
+              disabled={isSearching}
+              className="bg-gray-700 hover:bg-gray-600 px-8 py-3 text-lg"
+            >
+              <X className="h-5 w-5 mr-3" />
+              検索条件クリア
             </Button>
           </div>
         </CardContent>
@@ -1872,6 +1955,10 @@ export default function UltraModernDashboard() {
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 border-gray-700">
                     <SelectItem value="CPM">CPM</SelectItem>
+                    <SelectItem value="リーチ単価">リーチ単価</SelectItem>
+                    <SelectItem value="FQ">FQ</SelectItem>
+                    <SelectItem value="CTR">CTR</SelectItem>
+                    <SelectItem value="CPC">CPC</SelectItem>
                     <SelectItem value="単価数値">単価数値</SelectItem>
                     <SelectItem value="アカウント名">アカウント名</SelectItem>
                     <SelectItem value="ハンドル名">ハンドル名</SelectItem>

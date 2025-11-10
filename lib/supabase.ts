@@ -1,17 +1,18 @@
 import { createClient } from '@supabase/supabase-js'
 
-// 環境変数が設定されていない場合のデフォルト値（開発用）
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://your-project.supabase.co'
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'your-service-role-key'
+// 環境変数からのみ読み込む（フォールバックのハードコードは廃止）
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-// 環境変数が正しく設定されているかチェック
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  console.warn('⚠️ Supabase環境変数が設定されていません。モックデータが使用されます。')
+if (!supabaseUrl || !supabaseServiceKey) {
+  // サーバー側のみで使われる想定のため、明確に起動時エラーにする
+  throw new Error('Supabaseの環境変数が未設定です。NEXT_PUBLIC_SUPABASE_URL と SUPABASE_SERVICE_ROLE_KEY を .env.local に設定してください。')
 }
 
 export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
+    // サーバー側利用のためセッションは保持しない
     autoRefreshToken: false,
-    persistSession: false
-  }
+    persistSession: false,
+  },
 })

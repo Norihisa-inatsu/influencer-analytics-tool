@@ -18,6 +18,8 @@ export async function GET(request: Request) {
     const selectedObjective = searchParams.get('selectedObjective');
     const cpmRange = searchParams.get('cpmRange');
     const priceRange = searchParams.get('priceRange');
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
     
     console.log('Search API Route: 検索パラメータ:', {
       searchQuery,
@@ -25,7 +27,9 @@ export async function GET(request: Request) {
       selectedMedia,
       selectedObjective,
       cpmRange,
-      priceRange
+      priceRange,
+      startDate,
+      endDate
     });
 
     // 媒体ごとの参照ビューを決定
@@ -110,6 +114,18 @@ export async function GET(request: Request) {
       }
     }
 
+    // 期間フィルター（1日でも被る期間を検索）
+    // 条件: start_date <= filterEndDate AND end_date >= filterStartDate
+    if (startDate && endDate) {
+      query = query.gte('end_date', startDate).lte('start_date', endDate);
+    } else if (startDate) {
+      // 開始日のみ指定: end_date >= startDate
+      query = query.gte('end_date', startDate);
+    } else if (endDate) {
+      // 終了日のみ指定: start_date <= endDate
+      query = query.lte('start_date', endDate);
+    }
+
     console.log('Search API Route: Supabaseクエリ実行開始 - table =', table);
 
     // Supabaseクエリを実行
@@ -136,7 +152,9 @@ export async function GET(request: Request) {
         selectedMedia,
         selectedObjective,
         cpmRange,
-        priceRange
+        priceRange,
+        startDate,
+        endDate
       }
     });
 
