@@ -123,19 +123,19 @@ importers:
         specifier: ^0.454.0
         version: 0.454.0(react@19.2.1)
       next:
-        specifier: ^16.0.7
+        specifier: 16.0.7
         version: 16.0.7(@babel/core@7.28.5)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       next-themes:
         specifier: ^0.4.4
         version: 0.4.6(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       react:
-        specifier: ^19.1.2
+        specifier: 19.2.1
         version: 19.2.1
       react-day-picker:
         specifier: 9.8.0
         version: 9.8.0(react@19.2.1)
       react-dom:
-        specifier: ^19.1.2
+        specifier: 19.2.1
         version: 19.2.1(react@19.2.1)
       react-hook-form:
         specifier: ^7.54.1
